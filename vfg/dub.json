@@ -1,0 +1,13 @@
+{
+	"name": "vfg",
+	"authors": [
+		"tanitta"
+	],
+	"description": "Vector field generator",
+	"copyright": "Copyright © 2017, tanitta",
+	"license": "proprietary", 
+    "dependencies": {
+        "armos": {"path": "../../armos"}, 
+        "bvh":   {"path": "../../bvh-d"}
+    }
+}
