@@ -67,3 +67,32 @@ ScaledGrid!(V3) drawNormal(V3)(ScaledGrid!(V3) scaledGrid){
     }
     return scaledGrid;
 }
+
+auto normalizeNormals(V3)(ScaledGrid!(V3) scaledGrid){
+    foreach (ref cell; scaledGrid.cells) {
+        if(cell.normals.length > 0){
+            import std.algorithm;
+            cell.normal = cell.normals.fold!"a+b"(V3.zero)/cell.normals.length;
+            if(cell.normal.norm != 0){
+                cell.normal.normalize;
+            }
+        }else{
+            cell.normal = V3.zero;
+        }
+    }
+    return scaledGrid;
+}
+
+auto deleteNormalsFromCells(V3)(ScaledGrid!(V3) scaledGrid){
+    foreach (ref cell; scaledGrid.cells) {
+        cell.normals = [];
+    }
+    return scaledGrid;
+}
+
+auto setBufferNormal(V3)(ScaledGrid!(V3) scaledGrid){
+    foreach (ref cell; scaledGrid.cells) {
+        cell.bufferNormal = cell.normal;
+    }
+    return scaledGrid;
+}

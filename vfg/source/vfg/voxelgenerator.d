@@ -1,6 +1,6 @@
 module vfg.voxelgenerator;
 
-struct Config(N){
+struct VoxelGeneratorConfig(N){
     import armos.math;
     private alias V3 = Vector!(N, 3);
     V3 scale = V3(0.1, 0.1, 0.1);
@@ -9,6 +9,12 @@ struct Config(N){
 
 import armos.graphics.model;
 import vfg.scaledgrid;
+
+auto generateVoxel(N)(Model model, in VoxelGeneratorConfig!N config){
+    auto voxelGenerator = new VoxelGenerator!N(model, config);
+    return voxelGenerator.generate;
+}
+
 /++
 +/
 class VoxelGenerator(N) {
@@ -16,7 +22,7 @@ class VoxelGenerator(N) {
     import armos.math: Vector;
     import vfg.triangle;
     public{
-        this(Model model, in Config!N config){
+        this(Model model, in VoxelGeneratorConfig!N config){
             _config = config;
             Triangle!N[] triangles;
             foreach (mesh; model.meshes) {
@@ -46,6 +52,7 @@ class VoxelGenerator(N) {
             packFromPerspectiveInto(scaledGrid, V3(0, 1, 0));
             packFromPerspectiveInto(scaledGrid, V3(0, 0, 1));
             normalizeNormals(scaledGrid);
+            deleteNormalsFromCells(scaledGrid);
             attachNbhd(scaledGrid);
             return scaledGrid;
         }
@@ -56,7 +63,7 @@ class VoxelGenerator(N) {
         alias Vul3 = Vector!(ulong, 3);
         alias Vl3 = Vector!(long, 3);
         Node!(N, Triangle!N)  _node;
-        Config!N _config;
+        VoxelGeneratorConfig!N _config;
 
         ScaledGrid!(V3) packFromPerspectiveInto(ScaledGrid!(V3) scaledGrid, in V3 rayDirection)const{
             import std.range;
@@ -93,20 +100,6 @@ class VoxelGenerator(N) {
             return scaledGrid;
         }
 
-        auto normalizeNormals(ScaledGrid!(V3) scaledGrid)const{
-            foreach (ref cell; scaledGrid.cells) {
-                if(cell.normals.length > 0){
-                    import std.algorithm;
-                    cell.normal = cell.normals.fold!"a+b"(V3.zero)/cell.normals.length;
-                    if(cell.normal.norm != 0){
-                        cell.normal.normalize;
-                    }
-                }else{
-                    cell.normal = V3.zero;
-                }
-            }
-            return scaledGrid;
-        }
 
         auto attachNbhd(ScaledGrid!(V3) scaledGrid)const{
             alias Vul3 = Vector!(ulong, 3);
@@ -128,56 +121,9 @@ class VoxelGenerator(N) {
             }
             return scaledGrid;
         }
+
     }//private
 }//class VoxelGenerator
-
-unittest{
-    alias N = double;
-    import armos.math.vector;
-    alias V3 = Vector!(N, 3);
-    import armos.graphics.camera;
-
-    import armos.app;
-    import std.conv:to;
-
-    /++
-    +/
-    class TestApp : BaseApp{
-        public{
-            override void setup(){
-                auto config = Config!N();
-                _camera = (new DefaultCamera).position(V3(0, 0, -5).to!Vector3f)
-                                             .target(Vector3f.zero);
-                _model = (new Model()).load("monkey.fbx");
-                auto voxelGenerator = new VoxelGenerator!N(_model, config);
-                _scaledGrid = voxelGenerator.generate;
-                _radian = 0f;
-                // exitApp;
-            }
-
-            override void update(){
-                import std.math;
-                _camera.position = V3(cos(_radian)*-5, 0, sin(_radian)*-5).to!Vector3f;
-                _radian += 0.01f;
-            }
-
-            override void draw(){
-                _camera.begin;scope(exit)_camera.end;
-                _model.drawWireFrame;
-                _scaledGrid.drawNormal;
-            }
-        }//public
-
-        private{
-            Model _model;
-            Camera _camera;
-            ScaledGrid!V3 _scaledGrid;
-            float _radian;
-        }//private
-    }//class TestApp
-
-    (new TestApp).run;
-}
 
 V3 gridToModel(V3, Vul3)(Vul3 i, V3 gridScale, V3 gridOrigin){
     import std.conv:to;
@@ -221,7 +167,7 @@ auto setNbhd(Grid, Vl3)(Grid grid, in Vl3 targetIndex, in Vl3 nbhdDirection){
     if((nbhdIndex).exist(grid)){
         import std.conv:to;
         import armos.math:Vector;
-        grid.index(targetIndex.to!(Vector!(ulong, 3))).nbhd[nbhdIndex] = grid.index(nbhdIndex.to!(Vector!(ulong, 3)));
+        grid.index(targetIndex.to!(Vector!(ulong, 3))).nbhd[nbhdDirection] = &grid.index(nbhdIndex.to!(Vector!(ulong, 3)));
     }
     return grid;
 }
