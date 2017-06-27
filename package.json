@@ -1,0 +1,24 @@
+{
+  "name": "orca",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "webpack": "webpack -w",
+    "lite": "lite-server",
+    "start": "concurrently \"npm run lite\" \"npm run webpack\""
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "browser-sync": "^2.18.12",
+    "concurrently": "^3.5.0",
+    "lite-server": "^2.3.0",
+    "nodemon": "^1.11.0",
+    "three": "^0.86.0",
+    "three-orbit-controls": "^82.1.0",
+    "webpack": "^3.0.0",
+    "webpack-dev-server": "^2.5.0"
+  },
+  "dependencies": {}
+}

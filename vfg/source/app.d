@@ -8,6 +8,13 @@ import vfg.intersects;
 
 /++
 +/
+struct VfgConfig {
+    bool isFill = true;
+    bool isInverse = false;
+}//struct VfgConfig
+
+/++
++/
 class Vfg : BaseApp{
     import armos.graphics.model;
     import armos.graphics.camera;
@@ -24,25 +31,28 @@ class Vfg : BaseApp{
         override void setup(){
             _camera = (new DefaultCamera).position(V3(0, 0, -5).to!Vector3f)
                                          .target(Vector3f.zero);
+            _radian = 0f;
             _model = (new Model()).load("monkey.fbx");
 
-            _radian = 0f;
-
             import vfg.voxelgenerator;
-            auto voxelGeneratorConfig = VoxelGeneratorConfig!N();
-            voxelGeneratorConfig.scale = V3(0.1, 0.1, 0.1);
-
+            VoxelGeneratorConfig!N voxelGeneratorConfig = {
+                scale : V3(1, 1, 1)*0.1,
+                isInverse : _config.isInverse
+            };
 
              _scaledGrid = generateVoxel(_model, voxelGeneratorConfig).setBufferNormal;
+
+            if(_config.isFill){
+                import vfg.filler;
+                auto fillerConfig  = FillerConfig!N();
+                _scaledGrid.fillGrid(fillerConfig);
+            }
         }
 
         override void update(){
             import std.math;
-            _camera.position = V3(cos(_radian)*-5, 0, sin(_radian)*-5).to!Vector3f;
+            _camera.position = V3(cos(_radian)*-5, sin(_radian)*-5, sin(_radian)*-5).to!Vector3f;
             _radian += 0.01f;
-            import vfg.filler;
-            auto fillerConfig  = FillerConfig!N();
-            _scaledGrid.fillGrid(fillerConfig);
         }
 
         override void draw(){
@@ -50,9 +60,15 @@ class Vfg : BaseApp{
             _model.drawWireFrame;
             _scaledGrid.drawNormal;
         }
+
+        override void exit(){
+            import vfg.jsonexporter;
+            _scaledGrid.exportJSON("data/normals.json");
+        }
     }//public
 
     private{
+        VfgConfig _config;
         Model _model;
         Camera _camera;
         ScaledGrid!V3 _scaledGrid;

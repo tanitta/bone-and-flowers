@@ -4,6 +4,7 @@ struct VoxelGeneratorConfig(N){
     import armos.math;
     private alias V3 = Vector!(N, 3);
     V3 scale = V3(0.1, 0.1, 0.1);
+    bool isInverse = false;
 }
 
 
@@ -53,7 +54,11 @@ class VoxelGenerator(N) {
             packFromPerspectiveInto(scaledGrid, V3(0, 0, 1));
             normalizeNormals(scaledGrid);
             deleteNormalsFromCells(scaledGrid);
+            if(_config.isInverse){
+                scaledGrid.invertNormals;
+            }
             attachNbhd(scaledGrid);
+
             return scaledGrid;
         }
     }//public
@@ -125,20 +130,6 @@ class VoxelGenerator(N) {
     }//private
 }//class VoxelGenerator
 
-V3 gridToModel(V3, Vul3)(Vul3 i, V3 gridScale, V3 gridOrigin){
-    import std.conv:to;
-    return i.to!V3 * gridScale + gridOrigin;
-}
-
-
-Vl3 modelToGrid(Vl3, V3)(V3 v, V3 gridScale, V3 gridOrigin){
-    import std.algorithm:map;
-    import std.conv:to;
-    import std.math;
-    import std.range:array;
-    auto arr = ((v-gridOrigin)/gridScale).elements[].map!(e => e.lround.to!(Vl3.elementType)).array;
-    return Vl3(arr);
-}
 
 Vul3 indicesFromBoundingBox(Vul3, V3, BoundingBox)(in BoundingBox box, in V3 scale){
     return (box.max-box.min).modelToGrid!Vul3(scale, V3.zero) + Vul3(1, 1, 1);

@@ -42,14 +42,25 @@ unittest{
     assert(grid.scale == scale);
 }
 
+V3 gridToModel(V3, Vul3)(Vul3 i, V3 gridScale, V3 gridOrigin){
+    import std.conv:to;
+    return i.to!V3 * gridScale + gridOrigin;
+}
+
+
+Vl3 modelToGrid(Vl3, V3)(V3 v, V3 gridScale, V3 gridOrigin){
+    import std.algorithm:map;
+    import std.conv:to;
+    import std.math;
+    import std.range:array;
+    auto arr = ((v-gridorigin)/gridscale).elements[].map!(e => e.lround.to!(vl3.elementtype)).array;
+    return Vl3(arr);
+}
 
 ScaledGrid!(V3) drawNormal(V3)(ScaledGrid!(V3) scaledGrid){
     import armos.math;
     alias Vul3 = Vector!(ulong, 3);
     import std.range;
-
-    import std.stdio;
-    scaledGrid.origin.writeln;
 
     foreach (ix; scaledGrid.indices.x.iota) {
         foreach (iy; scaledGrid.indices.y.iota) {
@@ -93,6 +104,13 @@ auto deleteNormalsFromCells(V3)(ScaledGrid!(V3) scaledGrid){
 auto setBufferNormal(V3)(ScaledGrid!(V3) scaledGrid){
     foreach (ref cell; scaledGrid.cells) {
         cell.bufferNormal = cell.normal;
+    }
+    return scaledGrid;
+}
+
+auto invertNormals(V3)(ScaledGrid!(V3) scaledGrid){
+    foreach (ref cell; scaledGrid.cells) {
+        cell.normal = -cell.normal;
     }
     return scaledGrid;
 }

@@ -33,10 +33,25 @@ class Filler(N) {
             foreach (ref cell; scaledGrid.cells) {
                 cell.bufferNormal = cell.normal;
             }
-            calc(scaledGrid);
-            foreach (ref cell; scaledGrid.cells) {
-                if(cell.bufferNormal != V3.zero)cell.normal = cell.bufferNormal;
+
+            while(true){
+                calc(scaledGrid);
+                foreach (ref cell; scaledGrid.cells) {
+                    if(cell.bufferNormal != V3.zero)cell.normal = cell.bufferNormal;
+                }
+
+                //calc condition
+                N preNormSumTmp = 0;
+                foreach (cell; scaledGrid) {
+                    preNormSumTmp += cell.normal.norm;
+                }
+                import std.math;
+                N preNormSumDivTmp = abs(preNormSumTmp - _preNormSum);
+                if(preNormSumDivTmp == _preNormSumDiv)break;
+                _preNormSumDiv = abs(preNormSumTmp - _preNormSum);
+                _preNormSum = preNormSumTmp;
             }
+
             return scaledGrid;
         }
 
@@ -51,7 +66,7 @@ class Filler(N) {
                 import std.range;
                 auto tuples = cell.nbhd.keys.map!(key => tuple!("nbhd", "direction")(cell.nbhd[key], key))
                                             .filter!(t => t.direction.to!V3.dotProduct(t.nbhd.normal) > N(0)).array;
-                if(tuples.length>=3)tuples.each!(t => cell.normals ~= t.nbhd.normal*_config.delta);
+                if(tuples.length>=2)tuples.each!(t => cell.normals ~= t.nbhd.normal*_config.delta);
             }
             grid.normalizeNormals
                 .deleteNormalsFromCells;
@@ -61,5 +76,8 @@ class Filler(N) {
 
     private{
         FillerConfig!N _config;
+        N _preNormSum = 0;
+        N _preNormSumDiv = 0;
+
     }//private
 }//class Filler
