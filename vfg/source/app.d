@@ -32,11 +32,11 @@ class Vfg : BaseApp{
             _camera = (new DefaultCamera).position(V3(0, 0, -5).to!Vector3f)
                                          .target(Vector3f.zero);
             _radian = 0f;
-            _model = (new Model()).load("monkey.fbx");
+            _model = (new Model()).load("icosahedron.fbx");
 
             import vfg.voxelgenerator;
             VoxelGeneratorConfig!N voxelGeneratorConfig = {
-                scale : V3(1, 1, 1)*0.1,
+                scale : V3(1, 1, 1)*0.05,
                 isInverse : _config.isInverse
             };
 
@@ -63,7 +63,8 @@ class Vfg : BaseApp{
 
         override void exit(){
             import vfg.jsonexporter;
-            _scaledGrid.exportJSON("data/normals.json");
+            // _scaledGrid.exportJSON("data/normals.json");
+            _scaledGrid.exportJSON("../app/data/normals.json");
         }
     }//public
 

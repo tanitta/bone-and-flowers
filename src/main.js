@@ -5,8 +5,8 @@
   let container;
   let config = {
     camera:{
-      width : 600,
-      height: 400,
+      width : window.innerWidth,
+      height: window.innerHeight,
       fov   : 60,
       near  : 0.1, 
       far   : 1000, 
@@ -18,18 +18,13 @@
 
   function setup() {
     mainApp = new BAF.MainApp(config);
-
-    container = document.createElement( 'div' );
+    container = document.getElementById( 'container' );
     document.body.appendChild( container );
     mainApp.registerDom(container);
-    window.addEventListener( 'resize', onWindowResize, false );
-
+    window.onresize = onWindowResize;
     mainApp.setup();
-
     update();
   };
-
-
 
   update = ()=>{
     mainApp.update();
@@ -38,6 +33,6 @@
   }
 
   onWindowResize = ()=>{
-    mainApp.onWindowResize;
+    mainApp.onWindowResize();
   }
 })();

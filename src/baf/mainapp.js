@@ -1,6 +1,8 @@
 (function(){
-  let THREE = require('three'); 
+  let THREE           = require('three'); 
   THREE.OrbitControls = require('three-orbit-controls')(THREE);
+
+  let EMITTER         = require('./emitter.js'); 
 
   module.exports = 
     class MainApp {
@@ -11,26 +13,36 @@
         this._camera = new THREE.PerspectiveCamera( config.camera.fov, config.camera.aspect(), config.camera.near, config.camera.far );
         this._camera.position.set( 0, 1, 4 );
         this._controls = new THREE.OrbitControls(this._camera);
+        this._controls.rotateSpeed = 0.1;
         this._controls.autoRotate = true;
+        this._controls.enableDamping = true;
+        this._controls.dampingFactor = 0.05;
+        this._controls.autoRotateSpeed = 0.1;
 
         this._light = new THREE.DirectionalLight(0xffffff, 1.0);
-        this._renderer = new THREE.WebGLRenderer( { antialias: true} );
+        this._renderer = new THREE.WebGLRenderer( { antialias: false} );
 
-        let ScaledGrid = require('./scaledgrid.js'); 
-        this._scaledGrid = new ScaledGrid( "data/normals.json", this._scene);
+
+        this._emitter = new EMITTER.Emitter(this._scene, 1000, new THREE.Vector3(0, 0, 0), 1.0/60.0);
       }
 
       setup(){
-        this.setupBone();
-        this.setupGrid();
+        // this.setupBone();
+        // this.setupScaleGrid();
+        // this.setupGrid();
         this.setupRenderer();
-
+        this.setupEmitters();
         this._light.position.set(0, 1, 0);
         this._scene.add(this._light);
-        console.log(this._scene);
+      }
+
+      setupScaleGrid(){
+        let SCALEDGRID = require('./scaledgrid.js'); 
+        this._scaledGrid = new SCALEDGRID.ScaledGrid( "data/normals.json", this._scene);
       }
 
       update(){
+        this._emitter.update();
         this._controls.update();
       }
 
@@ -42,6 +54,8 @@
         container.appendChild( this._renderer.domElement );
       }
 
+      setupEmitters(){
+      }
 
       setupGrid(){
         var gridHelper = new THREE.GridHelper( 28, 28, 0x303030, 0x303030 );
@@ -78,6 +92,10 @@
       }
 
       onWindowResize(){
+        this._camera.aspect = window.innerWidth / window.innerHeight;
+        this._camera.updateProjectionMatrix();
+        this._renderer.setSize( window.innerWidth, window.innerHeight );
+        console.log("resize!");
       }
     };
 })();

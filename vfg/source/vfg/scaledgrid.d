@@ -53,7 +53,7 @@ Vl3 modelToGrid(Vl3, V3)(V3 v, V3 gridScale, V3 gridOrigin){
     import std.conv:to;
     import std.math;
     import std.range:array;
-    auto arr = ((v-gridorigin)/gridscale).elements[].map!(e => e.lround.to!(vl3.elementtype)).array;
+    auto arr = ((v-gridOrigin)/gridScale).elements[].map!(e => e.lround.to!(Vl3.elementType)).array;
     return Vl3(arr);
 }
 
@@ -110,7 +110,10 @@ auto setBufferNormal(V3)(ScaledGrid!(V3) scaledGrid){
 
 auto invertNormals(V3)(ScaledGrid!(V3) scaledGrid){
     foreach (ref cell; scaledGrid.cells) {
-        cell.normal = -cell.normal;
+
+        if(cell.normal.norm > 0){
+            cell.normal = -cell.normal;
+        }
     }
     return scaledGrid;
 }

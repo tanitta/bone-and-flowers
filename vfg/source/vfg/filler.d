@@ -4,7 +4,7 @@ import armos.math:Vector;
 /++
 +/
 struct FillerConfig(N) {
-    N delta = 0.01;
+    N delta = 1.0;
     private{
         alias V3 = Vector!(N, 3);
     }//private
@@ -58,14 +58,19 @@ class Filler(N) {
         ScaledGrid!V3  calc(ScaledGrid!V3 grid){
             foreach (ref cell; grid.cells) {
                 if(cell.bufferNormal != V3.zero)cell.normal = cell.bufferNormal;
-                if(cell.normal != V3.zero)continue;
-                cell.normals ~= cell.normal;
+                import std.stdio;
+                // cell.normal.norm.writeln;
+                if(cell.normal.norm > 0.5)continue;
+                // cell.normals ~= cell.normal;
                 import std.typecons;
                 import std.conv;
                 import std.algorithm:map, filter, each;
                 import std.range;
                 auto tuples = cell.nbhd.keys.map!(key => tuple!("nbhd", "direction")(cell.nbhd[key], key))
-                                            .filter!(t => t.direction.to!V3.dotProduct(t.nbhd.normal) > N(0)).array;
+                                            .filter!(t => t.nbhd.normal.dotProduct(t.direction.to!V3) > N(0))
+                                            .array;
+                tuples.each!(t => t.nbhd.normal.dotProduct(t.direction.to!V3).writeln);
+
                 if(tuples.length>=2)tuples.each!(t => cell.normals ~= t.nbhd.normal*_config.delta);
             }
             grid.normalizeNormals
