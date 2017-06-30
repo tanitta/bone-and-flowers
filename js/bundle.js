@@ -44233,7 +44233,7 @@ function CanvasRenderer() {
 
         this._scene = new THREE.Scene();
         this._camera = new THREE.PerspectiveCamera( config.camera.fov, config.camera.aspect(), config.camera.near, config.camera.far );
-        this._camera.position.set( 0, 1, 4 );
+        this._camera.position.set( 0, 1, 6 );
         this._controls = new THREE.OrbitControls(this._camera);
         this._controls.rotateSpeed = 0.1;
         this._controls.autoRotate = true;
@@ -44242,10 +44242,10 @@ function CanvasRenderer() {
         this._controls.autoRotateSpeed = 0.1;
 
         this._light = new THREE.DirectionalLight(0xffffff, 1.0);
-        this._renderer = new THREE.WebGLRenderer( { antialias: false} );
+        this._renderer = new THREE.WebGLRenderer( { antialias: true} );
 
 
-        this._emitter = new EMITTER.Emitter(this._scene, 1000, new THREE.Vector3(0, 0, 0), 1.0/60.0);
+        this._emitter = new EMITTER.Emitter(this._scene, 500, new THREE.Vector3(0, 0, 0), 1.0/60.0);
       }
 
       setup(){
@@ -44270,6 +44270,7 @@ function CanvasRenderer() {
 
       draw(){
         this._renderer.render(this._scene, this._camera);
+        this._renderer.setClearColor(0xeeeeee,1)
       }
 
       registerDom(container){
@@ -45355,6 +45356,7 @@ module.exports = function( THREE ) {
 
 (()=>{
   let THREE        = __webpack_require__(0); 
+  let MeshLine     = __webpack_require__( 8 );
   let PARTICLE     = __webpack_require__(5); 
   let SimplexNoise = __webpack_require__(6); 
 
@@ -45370,7 +45372,8 @@ module.exports = function( THREE ) {
         randomVector.multiplyScalar(0.1);
 
         this.timer = 0;
-        this.particles[p] = new PARTICLE.Particle(deltaT,
+        this.particles[p] = new PARTICLE.Particle(scene,
+                                                  deltaT,
                                                   1.0,
                                                   position.clone().add(randomVector),
                                                   null);
@@ -45384,31 +45387,9 @@ module.exports = function( THREE ) {
       console.log(this.particles);
       this.position = position;
 
-      this.setupMesh(scene);
-
       for (var p = 0; p < this.particles.length; ++p) {
-        this.particles[p].setupBufferArray(this.vertices, this.colors, p);
+        this.particles[p].setupBufferArray();
       }
-    }
-
-    setupMesh(scene){
-      this.vertices = new Float32Array(PARTICLE.Particle.vertices*this.particles.length*3);
-      this.colors   = new Float32Array(PARTICLE.Particle.vertices*this.particles.length*3);
-      this.indices  = new Uint32Array (PARTICLE.Particle.indices*this.particles.length);
-
-      this.geometry = new THREE.BufferGeometry();
-      this.geometry.addAttribute('position', new THREE.BufferAttribute(this.vertices, 3).setDynamic(true));
-      this.geometry.addAttribute('color', new THREE.BufferAttribute(this.colors, 3).setDynamic(true));
-      let material = new THREE.LineBasicMaterial( {
-        color: 0xffffff, 
-        transparent:true, 
-        opacity:0.2, 
-        blending: THREE.AdditiveBlending
-        // vertexColors: THREE.VertexColors
-      } );
-      this.mesh = new THREE.LineSegments(this.geometry, material);
-
-      scene.add(this.mesh);
     }
 
     update(){
@@ -45419,15 +45400,9 @@ module.exports = function( THREE ) {
                                        this.timer,  
                                        null);
         this.particles[particleIndex].integrate();
-        this.particles[particleIndex].updateBufferArray(this.vertices,
-                                                        this.colors,
-                                                        this.indices,
-                                                        particleIndex
-                                                       );
+        this.particles[particleIndex].updateBufferArray();
       }
-      this.geometry.attributes.position.needsUpdate = true;
-      this.geometry.attributes.color.needsUpdate = true;
-      this.timer += 0.01;
+      this.timer += 0.001;
     }
   }
   module.exports.Emitter = Emitter;
@@ -45440,13 +45415,50 @@ module.exports = function( THREE ) {
 
 (()=>{
   let THREE = __webpack_require__(0); 
+  let MeshLine = __webpack_require__( 8 );
   class Particle {
-    constructor(deltaT, mass, position, velocity) {
+    constructor(scene, deltaT, mass, position, velocity) {
       this.mass = mass|| 1.0;
       this.position = position || new THREE.Vector3(0, 0, 0);
       this.velocity = velocity || new THREE.Vector3(0, 0, 0);
       this.deltaT = deltaT || 1.0/60.0;
       this.counter = 0;
+
+      this.resolution = new THREE.Vector2( window.innerWidth, window.innerHeight );
+      this.geometry= new THREE.Geometry();
+      for (var i = 0; i < Particle.vertices; ++i) {
+        this.geometry.vertices.push(this.position.clone());
+      }
+      this.line = new MeshLine.MeshLine();
+      this.line.setGeometry(this.geometry, p=>((p<0.5)?p:1-p)*2);
+      let colors = "f7c59f-2a324b-767b91-c7ccdb-e1e5ee"
+                  .split("-")
+                  .map(e=>"0x"+e)
+                  .map(e=>parseInt(e, 16));
+
+      let randomInt = (min, max)=>{
+        return Math.floor( Math.random() * (max - min + 1) ) + min;
+      }
+      this.material = new MeshLine.MeshLineMaterial( {
+        // color: new THREE.Color( "rgb(255, 255, 255)" ),
+        //
+        color: new THREE.Color( colors[randomInt(0, colors.length)] ),
+        opacity: 1.0,
+        resolution: this.resolution, 
+        sizeAttenuation: true,
+        lineWidth: 0.06,
+        near: 1,
+        far: 100000,
+        depthTest: true,
+        blending: THREE.AdditiveBlending,
+        transparent: false,
+        side: THREE.DoubleSide
+      });
+      this.mesh = new THREE.Mesh( this.line.geometry, this.material); // this syntax could definitely be improved!
+      this.mesh.frustumCulled = false;
+      scene.add(this.mesh);
+    }
+    static resolution(){
     }
     static get vertices(){
       return 100;
@@ -45456,55 +45468,40 @@ module.exports = function( THREE ) {
       return 100;
     };
 
-    setupBufferArray(vertices, colors, particleIndex){
-      let verticesIndex  = particleIndex * Particle.vertices*3;
-      for (var i = 0; i < Particle.vertices; ++i) {
-        vertices[verticesIndex+3*i+0] = this.position.x;
-        vertices[verticesIndex+3*i+1] = this.position.y;
-        vertices[verticesIndex+3*i+2] = this.position.z;
-      }
-
-      let colorsIndex  = particleIndex * Particle.vertices*3;
-      for (var i = 0; i < Particle.vertices; ++i) {
-        colors[colorsIndex+3*i+0] = 1.0;
-        colors[colorsIndex+3*i+1] = 1.0;
-        colors[colorsIndex+3*i+2] = 1.0;
-      }
+    setupBufferArray(){
+      // for (var i = 0; i < Particle.vertices; ++i) {
+      //   this.vertices[3*i+0] = this.position.x;
+      //   this.vertices[3*i+1] = this.position.y;
+      //   this.vertices[3*i+2] = this.position.z;
+      // }
+      //
+      // for (var i = 0; i < Particle.vertices; ++i) {
+      //   this.colors[3*i+0] = 1.0;
+      //   this.colors[3*i+1] = 1.0;
+      //   this.colors[3*i+2] = 1.0;
+      // }
     }
 
-    updateBufferArray(vertices, colors, indices, particleIndex){
-      let verticesIndex  = particleIndex * Particle.vertices*3;
-      vertices[verticesIndex+3*(Particle.vertices-1)+0] = this.position.x;
-      vertices[verticesIndex+3*(Particle.vertices-1)+1] = this.position.y;
-      vertices[verticesIndex+3*(Particle.vertices-1)+2] = this.position.z;
-      for (var i = 0; i < Particle.vertices-1; ++i) {
-        vertices[verticesIndex+3*i+0] = vertices[verticesIndex+3*(i+1)+0];
-        vertices[verticesIndex+3*i+1] = vertices[verticesIndex+3*(i+1)+1];
-        vertices[verticesIndex+3*i+2] = vertices[verticesIndex+3*(i+1)+2];
-      }
+    updateBufferArray(){
+      this.line.advance( this.position );
+      // this.vertices[0] = 0;
+      // this.vertices[1] = 0;
+      // this.vertices[2] = 0;
+      // this.vertices[3] = this.position.x;
+      // this.vertices[4] = this.position.y;
+      // this.vertices[5] = this.position.z;
 
-      if(colors){
-        let colorsIndex = particleIndex * Particle.vertices*3;
-        // colors[colorsIndex+3*(Particle.vertices-1)+0] = this.position.x;
-        // colors[colorsIndex+3*(Particle.vertices-1)+1] = this.position.y;
-        // colors[colorsIndex+3*(Particle.vertices-1)+2] = this.position.z;
+      // this.vertices[3*(Particle.vertices-1)+0] = this.position.x;
+      // this.vertices[3*(Particle.vertices-1)+1] = this.position.y;
+      // this.vertices[3*(Particle.vertices-1)+2] = this.position.z;
+      // for (var i = 0; i < Particle.vertices-1; ++i) {
+      //   this.vertices[3*i+0] = this.vertices[3*(i+1)+0];
+      //   this.vertices[3*i+1] = this.vertices[3*(i+1)+1];
+      //   this.vertices[3*i+2] = this.vertices[3*(i+1)+2];
+      // }
 
-        for (var i = 0; i < Particle.vertices; ++i) {
-          let c = i/Particle.vertices;
-          // colors[colorsIndex+3*i+0] = colors[colorsIndex+3*(i+1)+0];
-          // colors[colorsIndex+3*i+1] = colors[colorsIndex+3*(i+1)+1];
-          // colors[colorsIndex+3*i+2] = colors[colorsIndex+3*(i+1)+2];
-          // colors[colorsIndex+3*i+0] = 1-c;
-          // colors[colorsIndex+3*i+1] = 1-c;
-          // colors[colorsIndex+3*i+2] = 1;
-        }
-      }
-
-      if(indices){
-        let indicesIndex = particleIndex * this.indices;
-        indices[indicesIndex+0] = verticesIndex+0;
-        indices[indicesIndex+1] = verticesIndex+1;
-      }
+      // this.geometry.attributes.position.needsUpdate = true;
+      // this.geometry.attributes.color.needsUpdate = true;
     }
 
     integrate(){
@@ -45545,33 +45542,39 @@ module.exports = function( THREE ) {
     force.multiplyScalar(1.0/e2).normalize().multiplyScalar(4.0);
 
     let clamp = new THREE.Vector3(0, 0, 0);
+
     let distance = 1;
-    // if(p.length() > distance){
-    //   // clamp = p.clone().normalize().multiplyScalar((distance-p.length())*1);
-    //   clamp = p.clone().normalize().multiplyScalar(-2);
-    //   force.add(clamp);
-    // }
+    if(p.length() > distance){
+      clamp = p.clone().normalize().multiplyScalar((distance-p.length())*1);
+      // clamp = p.clone().normalize().multiplyScalar(-2);
+      force.add(clamp);
+    }
+    
 
-    let normal = p.clone().normalize();
-    let r = 0;
-    r +=  - force.clone().dot(normal)*0.9;
-    r += (distance - p.length())*1;
-    force.add(normal.multiplyScalar(r));
+    // let randomVector = new THREE.Vector3(Math.random(-e, e), Math.random(-e, e), Math.random(-e, e));
+    // force.add(randomVector);
+
+    // let normal = p.clone().normalize();
+    // let r = 0;
+    // r +=  - force.clone().dot(normal)*0.9;
+    // r += (distance - p.length())*1;
+    // force.add(normal.multiplyScalar(r));
 
 
-    // {
-    //   let forceDir = force.clone().normalize().round();
-    //   let forceNorm    = force.clone().length();
-    //   particle.velocity= forceDir.multiplyScalar(forceNorm);
-    // }
+    {
+      let forceDir = force.clone().normalize().round();
+      let forceNorm    = force.clone().length();
+      particle.velocity= forceDir.multiplyScalar(forceNorm);
+    }
 
-    particle.velocity = force;
+
+    // particle.velocity = force;
 
   }
 
   let simplexVector3 = (v, simplex, randomOffset, t)=>{
-    let v1 = v.clone().multiplyScalar(0.3);
-    let v2 = v.clone().multiplyScalar(1);
+    let v1 = v.clone().multiplyScalar(0.6);
+    let v2 = v.clone().multiplyScalar(1.5);
     let weight1 = 0.5;
     let weight2 = 0.2;
     let x = simplex.noise4D(v1.x+randomOffset.x.x, v1.y+randomOffset.x.y, v1.z+randomOffset.x.z, t)*weight1;
@@ -46116,6 +46119,489 @@ if (true) {
 
 
 })();
+
+
+/***/ }),
+/* 8 */
+/***/ (function(module, exports, __webpack_require__) {
+
+;(function() {
+
+"use strict";
+
+var root = this
+
+var has_require = "function" !== 'undefined'
+
+var THREE = root.THREE || has_require && __webpack_require__(0)
+if( !THREE )
+	throw new Error( 'EquirectangularToCubemap requires three.js' )
+
+function MeshLine() {
+
+	this.positions = [];
+
+	this.previous = [];
+	this.next = [];
+	this.side = [];
+	this.width = [];
+	this.indices_array = [];
+	this.uvs = [];
+	this.counters = [];
+	this.geometry = new THREE.BufferGeometry();
+
+	this.widthCallback = null;
+
+}
+
+MeshLine.prototype.setGeometry = function( g, c ) {
+
+	this.widthCallback = c;
+
+	this.positions = [];
+	this.counters = [];
+
+	if( g instanceof THREE.Geometry ) {
+		for( var j = 0; j < g.vertices.length; j++ ) {
+			var v = g.vertices[ j ];
+			var c = j/g.vertices.length;
+			this.positions.push( v.x, v.y, v.z );
+			this.positions.push( v.x, v.y, v.z );
+			this.counters.push(c);
+			this.counters.push(c);
+		}
+	}
+
+	if( g instanceof THREE.BufferGeometry ) {
+		// read attribute positions ?
+	}
+
+	if( g instanceof Float32Array || g instanceof Array ) {
+		for( var j = 0; j < g.length; j += 3 ) {
+			var c = j/g.length;
+			this.positions.push( g[ j ], g[ j + 1 ], g[ j + 2 ] );
+			this.positions.push( g[ j ], g[ j + 1 ], g[ j + 2 ] );
+			this.counters.push(c);
+			this.counters.push(c);
+		}
+	}
+
+	this.process();
+
+}
+
+MeshLine.prototype.compareV3 = function( a, b ) {
+
+	var aa = a * 6;
+	var ab = b * 6;
+	return ( this.positions[ aa ] === this.positions[ ab ] ) && ( this.positions[ aa + 1 ] === this.positions[ ab + 1 ] ) && ( this.positions[ aa + 2 ] === this.positions[ ab + 2 ] );
+
+}
+
+MeshLine.prototype.copyV3 = function( a ) {
+
+	var aa = a * 6;
+	return [ this.positions[ aa ], this.positions[ aa + 1 ], this.positions[ aa + 2 ] ];
+
+}
+
+MeshLine.prototype.process = function() {
+
+	var l = this.positions.length / 6;
+
+	this.previous = [];
+	this.next = [];
+	this.side = [];
+	this.width = [];
+	this.indices_array = [];
+	this.uvs = [];
+
+	for( var j = 0; j < l; j++ ) {
+		this.side.push( 1 );
+		this.side.push( -1 );
+	}
+
+	var w;
+	for( var j = 0; j < l; j++ ) {
+		if( this.widthCallback ) w = this.widthCallback( j / ( l -1 ) );
+		else w = 1;
+		this.width.push( w );
+		this.width.push( w );
+	}
+
+	for( var j = 0; j < l; j++ ) {
+		this.uvs.push( j / ( l - 1 ), 0 );
+		this.uvs.push( j / ( l - 1 ), 1 );
+	}
+
+	var v;
+
+	if( this.compareV3( 0, l - 1 ) ){
+		v = this.copyV3( l - 2 );
+	} else {
+		v = this.copyV3( 0 );
+	}
+	this.previous.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+	this.previous.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+	for( var j = 0; j < l - 1; j++ ) {
+		v = this.copyV3( j );
+		this.previous.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+		this.previous.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+	}
+
+	for( var j = 1; j < l; j++ ) {
+		v = this.copyV3( j );
+		this.next.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+		this.next.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+	}
+
+	if( this.compareV3( l - 1, 0 ) ){
+		v = this.copyV3( 1 );
+	} else {
+		v = this.copyV3( l - 1 );
+	}
+	this.next.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+	this.next.push( v[ 0 ], v[ 1 ], v[ 2 ] );
+
+	for( var j = 0; j < l - 1; j++ ) {
+		var n = j * 2;
+		this.indices_array.push( n, n + 1, n + 2 );
+		this.indices_array.push( n + 2, n + 1, n + 3 );
+	}
+
+	if (!this.attributes) {
+		this.attributes = {
+			position: new THREE.BufferAttribute( new Float32Array( this.positions ), 3 ),
+			previous: new THREE.BufferAttribute( new Float32Array( this.previous ), 3 ),
+			next: new THREE.BufferAttribute( new Float32Array( this.next ), 3 ),
+			side: new THREE.BufferAttribute( new Float32Array( this.side ), 1 ),
+			width: new THREE.BufferAttribute( new Float32Array( this.width ), 1 ),
+			uv: new THREE.BufferAttribute( new Float32Array( this.uvs ), 2 ),
+			index: new THREE.BufferAttribute( new Uint16Array( this.indices_array ), 1 ),
+			counters: new THREE.BufferAttribute( new Float32Array( this.counters ), 1 )
+		}
+	} else {
+		this.attributes.position.copyArray(new Float32Array(this.positions));
+		this.attributes.position.needsUpdate = true;
+		this.attributes.previous.copyArray(new Float32Array(this.previous));
+		this.attributes.previous.needsUpdate = true;
+		this.attributes.next.copyArray(new Float32Array(this.next));
+		this.attributes.next.needsUpdate = true;
+		this.attributes.side.copyArray(new Float32Array(this.side));
+		this.attributes.side.needsUpdate = true;
+		this.attributes.width.copyArray(new Float32Array(this.width));
+		this.attributes.width.needsUpdate = true;
+		this.attributes.uv.copyArray(new Float32Array(this.uvs));
+		this.attributes.uv.needsUpdate = true;
+		this.attributes.index.copyArray(new Uint16Array(this.indices_array));
+		this.attributes.index.needsUpdate = true;
+    }
+
+	this.geometry.addAttribute( 'position', this.attributes.position );
+	this.geometry.addAttribute( 'previous', this.attributes.previous );
+	this.geometry.addAttribute( 'next', this.attributes.next );
+	this.geometry.addAttribute( 'side', this.attributes.side );
+	this.geometry.addAttribute( 'width', this.attributes.width );
+	this.geometry.addAttribute( 'uv', this.attributes.uv );
+	this.geometry.addAttribute( 'counters', this.attributes.counters );
+
+	this.geometry.setIndex( this.attributes.index );
+
+}
+
+function memcpy (src, srcOffset, dst, dstOffset, length) {
+	var i
+
+	src = src.subarray || src.slice ? src : src.buffer
+	dst = dst.subarray || dst.slice ? dst : dst.buffer
+
+	src = srcOffset ? src.subarray ?
+	src.subarray(srcOffset, length && srcOffset + length) :
+	src.slice(srcOffset, length && srcOffset + length) : src
+
+	if (dst.set) {
+		dst.set(src, dstOffset)
+	} else {
+		for (i=0; i<src.length; i++) {
+			dst[i + dstOffset] = src[i]
+		}
+	}
+
+	return dst
+}
+
+/**
+ * Fast method to advance the line by one position.  The oldest position is removed.
+ * @param position
+ */
+MeshLine.prototype.advance = function(position) {
+
+	var positions = this.attributes.position.array;
+	var previous = this.attributes.previous.array;
+	var next = this.attributes.next.array;
+	var l = positions.length;
+
+	// PREVIOUS
+	memcpy( positions, 0, previous, 0, l );
+
+	// POSITIONS
+	memcpy( positions, 6, positions, 0, l - 6 );
+
+	positions[l - 6] = position.x;
+	positions[l - 5] = position.y;
+	positions[l - 4] = position.z;
+	positions[l - 3] = position.x;
+	positions[l - 2] = position.y;
+	positions[l - 1] = position.z;
+
+    // NEXT
+	memcpy( positions, 6, next, 0, l - 6 );
+
+	next[l - 6]  = position.x;
+	next[l - 5]  = position.y;
+	next[l - 4]  = position.z;
+	next[l - 3]  = position.x;
+	next[l - 2]  = position.y;
+	next[l - 1]  = position.z;
+
+	this.attributes.position.needsUpdate = true;
+	this.attributes.previous.needsUpdate = true;
+	this.attributes.next.needsUpdate = true;
+
+};
+
+function MeshLineMaterial( parameters ) {
+
+	var vertexShaderSource = [
+'precision highp float;',
+'',
+'attribute vec3 position;',
+'attribute vec3 previous;',
+'attribute vec3 next;',
+'attribute float side;',
+'attribute float width;',
+'attribute vec2 uv;',
+'attribute float counters;',
+'',
+'uniform mat4 projectionMatrix;',
+'uniform mat4 modelViewMatrix;',
+'uniform vec2 resolution;',
+'uniform float lineWidth;',
+'uniform vec3 color;',
+'uniform float opacity;',
+'uniform float near;',
+'uniform float far;',
+'uniform float sizeAttenuation;',
+'',
+'varying vec2 vUV;',
+'varying vec4 vColor;',
+'varying float vCounters;',
+'',
+'vec2 fix( vec4 i, float aspect ) {',
+'',
+'    vec2 res = i.xy / i.w;',
+'    res.x *= aspect;',
+'	 vCounters = counters;',
+'    return res;',
+'',
+'}',
+'',
+'void main() {',
+'',
+'    float aspect = resolution.x / resolution.y;',
+'	 float pixelWidthRatio = 1. / (resolution.x * projectionMatrix[0][0]);',
+'',
+'    vColor = vec4( color, opacity );',
+'    vUV = uv;',
+'',
+'    mat4 m = projectionMatrix * modelViewMatrix;',
+'    vec4 finalPosition = m * vec4( position, 1.0 );',
+'    vec4 prevPos = m * vec4( previous, 1.0 );',
+'    vec4 nextPos = m * vec4( next, 1.0 );',
+'',
+'    vec2 currentP = fix( finalPosition, aspect );',
+'    vec2 prevP = fix( prevPos, aspect );',
+'    vec2 nextP = fix( nextPos, aspect );',
+'',
+'	 float pixelWidth = finalPosition.w * pixelWidthRatio;',
+'    float w = 1.8 * pixelWidth * lineWidth * width;',
+'',
+'    if( sizeAttenuation == 1. ) {',
+'        w = 1.8 * lineWidth * width;',
+'    }',
+'',
+'    vec2 dir;',
+'    if( nextP == currentP ) dir = normalize( currentP - prevP );',
+'    else if( prevP == currentP ) dir = normalize( nextP - currentP );',
+'    else {',
+'        vec2 dir1 = normalize( currentP - prevP );',
+'        vec2 dir2 = normalize( nextP - currentP );',
+'        dir = normalize( dir1 + dir2 );',
+'',
+'        vec2 perp = vec2( -dir1.y, dir1.x );',
+'        vec2 miter = vec2( -dir.y, dir.x );',
+'        //w = clamp( w / dot( miter, perp ), 0., 4. * lineWidth * width );',
+'',
+'    }',
+'',
+'    //vec2 normal = ( cross( vec3( dir, 0. ), vec3( 0., 0., 1. ) ) ).xy;',
+'    vec2 normal = vec2( -dir.y, dir.x );',
+'    normal.x /= aspect;',
+'    normal *= .5 * w;',
+'',
+'    vec4 offset = vec4( normal * side, 0.0, 1.0 );',
+'    finalPosition.xy += offset.xy;',
+'',
+'    gl_Position = finalPosition;',
+'',
+'}' ];
+
+	var fragmentShaderSource = [
+		'#extension GL_OES_standard_derivatives : enable',
+'precision mediump float;',
+'',
+'uniform sampler2D map;',
+'uniform sampler2D alphaMap;',
+'uniform float useMap;',
+'uniform float useAlphaMap;',
+'uniform float useDash;',
+'uniform vec2 dashArray;',
+'uniform float visibility;',
+'uniform float alphaTest;',
+'uniform vec2 repeat;',
+'',
+'varying vec2 vUV;',
+'varying vec4 vColor;',
+'varying float vCounters;',
+'',
+'void main() {',
+'',
+'    vec4 c = vColor;',
+'    if( useMap == 1. ) c *= texture2D( map, vUV * repeat );',
+'    if( useAlphaMap == 1. ) c.a *= texture2D( alphaMap, vUV * repeat ).a;',
+'	 if( c.a < alphaTest ) discard;',
+'	 if( useDash == 1. ){',
+'	 	 ',
+'	 }',
+'    gl_FragColor = c;',
+'	 gl_FragColor.a *= step(vCounters,visibility);',
+'}' ];
+
+	function check( v, d ) {
+		if( v === undefined ) return d;
+		return v;
+	}
+
+	THREE.Material.call( this );
+
+	parameters = parameters || {};
+
+	this.lineWidth = check( parameters.lineWidth, 1 );
+	this.map = check( parameters.map, null );
+	this.useMap = check( parameters.useMap, 0 );
+	this.alphaMap = check( parameters.alphaMap, null );
+	this.useAlphaMap = check( parameters.useAlphaMap, 0 );
+	this.color = check( parameters.color, new THREE.Color( 0xffffff ) );
+	this.opacity = check( parameters.opacity, 1 );
+	this.resolution = check( parameters.resolution, new THREE.Vector2( 1, 1 ) );
+	this.sizeAttenuation = check( parameters.sizeAttenuation, 1 );
+	this.near = check( parameters.near, 1 );
+	this.far = check( parameters.far, 1 );
+	this.dashArray = check( parameters.dashArray, [] );
+	this.useDash = ( this.dashArray !== [] ) ? 1 : 0;
+	this.visibility = check( parameters.visibility, 1 );
+	this.alphaTest = check( parameters.alphaTest, 0 );
+	this.repeat = check( parameters.repeat, new THREE.Vector2( 1, 1 ) );
+
+	var material = new THREE.RawShaderMaterial( {
+		uniforms:{
+			lineWidth: { type: 'f', value: this.lineWidth },
+			map: { type: 't', value: this.map },
+			useMap: { type: 'f', value: this.useMap },
+			alphaMap: { type: 't', value: this.alphaMap },
+			useAlphaMap: { type: 'f', value: this.useAlphaMap },
+			color: { type: 'c', value: this.color },
+			opacity: { type: 'f', value: this.opacity },
+			resolution: { type: 'v2', value: this.resolution },
+			sizeAttenuation: { type: 'f', value: this.sizeAttenuation },
+			near: { type: 'f', value: this.near },
+			far: { type: 'f', value: this.far },
+			dashArray: { type: 'v2', value: new THREE.Vector2( this.dashArray[ 0 ], this.dashArray[ 1 ] ) },
+			useDash: { type: 'f', value: this.useDash },
+			visibility: {type: 'f', value: this.visibility},
+			alphaTest: {type: 'f', value: this.alphaTest},
+			repeat: { type: 'v2', value: this.repeat }
+		},
+		vertexShader: vertexShaderSource.join( '\r\n' ),
+		fragmentShader: fragmentShaderSource.join( '\r\n' )
+	});
+
+	delete parameters.lineWidth;
+	delete parameters.map;
+	delete parameters.useMap;
+	delete parameters.alphaMap;
+	delete parameters.useAlphaMap;
+	delete parameters.color;
+	delete parameters.opacity;
+	delete parameters.resolution;
+	delete parameters.sizeAttenuation;
+	delete parameters.near;
+	delete parameters.far;
+	delete parameters.dashArray;
+	delete parameters.visibility;
+	delete parameters.alphaTest;
+	delete parameters.repeat;
+
+	material.type = 'MeshLineMaterial';
+
+	material.setValues( parameters );
+
+	return material;
+
+};
+
+MeshLineMaterial.prototype = Object.create( THREE.Material.prototype );
+MeshLineMaterial.prototype.constructor = MeshLineMaterial;
+
+MeshLineMaterial.prototype.copy = function ( source ) {
+
+	THREE.Material.prototype.copy.call( this, source );
+
+	this.lineWidth = source.lineWidth;
+	this.map = source.map;
+	this.useMap = source.useMap;
+	this.alphaMap = source.alphaMap;
+	this.useAlphaMap = source.useAlphaMap;
+	this.color.copy( source.color );
+	this.opacity = source.opacity;
+	this.resolution.copy( source.resolution );
+	this.sizeAttenuation = source.sizeAttenuation;
+	this.near = source.near;
+	this.far = source.far;
+	this.dashArray.copy( source.dashArray );
+	this.useDash = source.useDash;
+	this.visibility = source.visibility;
+	this.alphaTest = source.alphaTest;
+	this.repeat.copy( source.repeat );
+
+	return this;
+
+};
+
+if( true ) {
+	if( typeof module !== 'undefined' && module.exports ) {
+		exports = module.exports = { MeshLine: MeshLine, MeshLineMaterial: MeshLineMaterial };
+	}
+	exports.MeshLine = MeshLine;
+	exports.MeshLineMaterial = MeshLineMaterial;
+}
+else {
+	root.MeshLine = MeshLine;
+	root.MeshLineMaterial = MeshLineMaterial;
+}
+
+}).call(this);
+
 
 
 /***/ })
