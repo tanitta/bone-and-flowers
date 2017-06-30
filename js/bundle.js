@@ -45461,7 +45461,7 @@ module.exports = function( THREE ) {
     static resolution(){
     }
     static get vertices(){
-      return 100;
+      return 50;
     };
 
     static get indices(){
@@ -45561,14 +45561,14 @@ module.exports = function( THREE ) {
     // force.add(normal.multiplyScalar(r));
 
 
-    {
-      let forceDir = force.clone().normalize().round();
-      let forceNorm    = force.clone().length();
-      particle.velocity= forceDir.multiplyScalar(forceNorm);
-    }
+    // {
+    //   let forceDir = force.clone().normalize().round();
+    //   let forceNorm    = force.clone().length();
+    //   particle.velocity= forceDir.multiplyScalar(forceNorm);
+    // }
 
 
-    // particle.velocity = force;
+    particle.velocity = force;
 
   }
 
